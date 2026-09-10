@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인디 쇼케이스 캘린더</title>
+<meta name="description" content="스팀 피쳐링 인디게임 온라인 쇼케이스의 접수·행사 일정, 비용, 다음 연도 공지 시점을 추적하는 마케팅팀용 대시보드">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#EFF1EA;
+    --surface:#FFFFFF;
+    --surface-2:#E3E7DA;
+    --ink:#1B2420;
+    --ink-muted:#5C6459;
+    --border:#D4DAC8;
+    --accent:#0F7A73;
+    --accent-soft:#DCEEEA;
+    --accent2:#C97A22;
+    --accent2-soft:#F3E4CD;
+    --good:#2E8B4E;
+    --good-soft:#DCEFDF;
+    --warn:#B5501F;
+    --warn-soft:#F5DFCF;
+    --neutral:#8B9086;
+    --neutral-soft:#E7E9E1;
+    --today-line:#B5501F;
+    --shadow: 0 1px 2px rgba(27,36,32,0.07), 0 10px 28px -16px rgba(27,36,32,0.28);
+    --radius-lg:14px;
+    --radius-md:10px;
+    --radius-sm:7px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#12160F;
+      --surface:#1A2018;
+      --surface-2:#222A20;
+      --ink:#ECEFE5;
+      --ink-muted:#9BA394;
+      --border:#2E362B;
+      --accent:#42BDB0;
+      --accent-soft:#1B3733;
+      --accent2:#E2A44E;
+      --accent2-soft:#3B301C;
+      --good:#4FB374;
+      --good-soft:#1C3323;
+      --warn:#E2794C;
+      --warn-soft:#3A2419;
+      --neutral:#848B7E;
+      --neutral-soft:#232922;
+      --today-line:#E2794C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 32px -18px rgba(0,0,0,0.65);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12160F;
+    --surface:#1A2018;
+    --surface-2:#222A20;
+    --ink:#ECEFE5;
+    --ink-muted:#9BA394;
+    --border:#2E362B;
+    --accent:#42BDB0;
+    --accent-soft:#1B3733;
+    --accent2:#E2A44E;
+    --accent2-soft:#3B301C;
+    --good:#4FB374;
+    --good-soft:#1C3323;
+    --warn:#E2794C;
+    --warn-soft:#3A2419;
+    --neutral:#848B7E;
+    --neutral-soft:#232922;
+    --today-line:#E2794C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 14px 32px -18px rgba(0,0,0,0.65);
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; }
+  .app{ max-width:1180px; margin:0 auto; padding:28px 20px 64px; display:flex; flex-direction:column; gap:22px; }
+  a{ color:var(--accent); }
+  .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-muted); margin:0 0 6px; }
+  h1{ font-family:'Fraunces', serif; font-weight:600; font-size:clamp(26px,3.6vw,36px); line-height:1.08; margin:0; text-wrap:balance; }
+  .sub{ margin:8px 0 0; color:var(--ink-muted); font-size:14px; max-width:56ch; }
+
+  /* ---- top bar ---- */
+  .topbar{ display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap; }
+  .meta-block{ display:flex; gap:22px; flex-wrap:wrap; }
+  .meta-item{ display:flex; flex-direction:column; gap:2px; }
+  .meta-label{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-muted); }
+  .meta-value{ font-family:'IBM Plex Mono',monospace; font-size:13.5px; font-weight:500; font-variant-numeric:tabular-nums; }
+
+  /* ---- stats ---- */
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  .stat-tile{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; box-shadow:var(--shadow); }
+  .stat-value{ font-family:'Fraunces',serif; font-weight:600; font-size:30px; line-height:1; font-variant-numeric:tabular-nums; }
+  .stat-value.warn{ color:var(--warn); }
+  .stat-value.good{ color:var(--good); }
+  .stat-label{ margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-muted); }
+
+  /* ---- controls ---- */
+  .controls{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px; }
+  .search-row{ display:flex; gap:10px; align-items:center; }
+  .search-row input{ flex:1; min-width:180px; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; }
+  .search-row input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .clear-btn{ padding:9px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface-2); color:var(--ink); font:500 12.5px 'IBM Plex Sans'; cursor:pointer; white-space:nowrap; }
+  .clear-btn:hover{ background:var(--border); }
+  .filter-groups{ display:flex; flex-direction:column; gap:8px; }
+  .filter-group{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .filter-group-label{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-muted); min-width:52px; }
+  .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{ padding:4px 11px; border:1px solid var(--border); border-radius:999px; font:500 12px 'IBM Plex Mono',monospace; cursor:pointer; background:var(--surface); color:var(--ink-muted); user-select:none; transition:background .12s,color .12s,border-color .12s; }
+  .chip:hover{ border-color:var(--accent); color:var(--ink); }
+  .chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .chip:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---- timeline ---- */
+  .timeline-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 16px 12px; box-shadow:var(--shadow); }
+  .timeline-title{ font-family:'Fraunces',serif; font-weight:600; font-size:18px; margin:0 0 12px; }
+  .timeline-scroll{ overflow-x:auto; }
+  .timeline-inner{ min-width:760px; }
+  .timeline-toprow, .timeline-body{ display:grid; grid-template-columns:190px 1fr; column-gap:12px; }
+  .tl-corner{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted); align-self:end; padding-bottom:6px; }
+  .tl-months{ display:grid; grid-template-columns:repeat(12,1fr); padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .tl-months span{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-muted); text-align:center; }
+  .tl-names{ display:grid; grid-auto-rows:34px; row-gap:6px; padding-top:8px; }
+  .tl-name{ display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+  .tl-name .n{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tl-name .o{ font-size:10.5px; color:var(--ink-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tl-tracks{ position:relative; display:grid; grid-auto-rows:34px; row-gap:6px; padding-top:8px; }
+  .tl-gridlines{ position:absolute; inset:8px 0 0 0; pointer-events:none; }
+  .tl-gridlines i{ position:absolute; top:0; bottom:0; width:1px; background:var(--border); opacity:.7; }
+  .tl-todayline{ position:absolute; inset:8px 0 0 0; pointer-events:none; z-index:3; }
+  .tl-todayline .line{ position:absolute; top:-2px; bottom:0; width:2px; background:var(--today-line); }
+  .tl-todayline .tag{ position:absolute; top:-20px; transform:translateX(-50%); font:600 10px 'IBM Plex Mono'; color:var(--today-line); white-space:nowrap; }
+  .tl-row{ position:relative; }
+  .tl-bar{ position:absolute; height:11px; border-radius:5px; }
+  .tl-bar.submission{ top:2px; background:var(--accent); }
+  .tl-bar.event{ top:19px; background:var(--accent2); }
+  .tl-bar.clamped-low{ -webkit-mask-image:linear-gradient(to right, transparent 0, black 10px); mask-image:linear-gradient(to right, transparent 0, black 10px); }
+  .tl-bar.clamped-high{ -webkit-mask-image:linear-gradient(to left, transparent 0, black 10px); mask-image:linear-gradient(to left, transparent 0, black 10px); }
+  .tl-dot{ position:absolute; width:9px; height:9px; border-radius:50%; transform:translateX(-50%); }
+  .tl-dot.submission{ top:1.5px; background:var(--accent); }
+  .tl-dot.event{ top:18.5px; background:var(--accent2); }
+  .tl-empty{ position:absolute; left:0; top:9px; font-size:11px; color:var(--neutral); font-family:'IBM Plex Mono',monospace; }
+  .tl-legend{ display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; font-size:11.5px; color:var(--ink-muted); }
+  .tl-legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .tl-legend i{ width:12px; height:9px; border-radius:4px; display:inline-block; }
+  .tl-legend i.today{ width:2px; height:14px; border-radius:0; background:var(--today-line); }
+
+  /* ---- list ---- */
+  .list-section{ display:flex; flex-direction:column; gap:20px; }
+  .status-group h2{ font-family:'Fraunces',serif; font-weight:600; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  .status-count{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-muted); font-weight:400; }
+  .cards{ display:flex; flex-direction:column; gap:8px; }
+  details.card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow); }
+  details.card summary{ list-style:none; cursor:pointer; padding:12px 14px; display:flex; align-items:center; gap:12px; }
+  details.card summary::-webkit-details-marker{ display:none; }
+  details.card summary:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; border-radius:var(--radius-md); }
+  .chev{ font-size:11px; color:var(--ink-muted); transition:transform .15s; flex:none; }
+  details[open] .chev{ transform:rotate(90deg); }
+  .card-title{ flex:1 1 240px; min-width:0; }
+  .card-title .n{ font-weight:600; font-size:14.5px; }
+  .card-title .o{ font-size:12px; color:var(--ink-muted); margin-top:1px; }
+  .card-dates{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-muted); text-align:right; flex:0 0 auto; }
+  .badge{ font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; flex:none; }
+  .badge.open{ background:var(--good-soft); color:var(--good); }
+  .badge.closing-soon{ background:var(--warn-soft); color:var(--warn); }
+  .badge.live{ background:var(--good-soft); color:var(--good); }
+  .badge.awaiting-event{ background:var(--accent2-soft); color:var(--accent2); }
+  .badge.upcoming{ background:var(--accent-soft); color:var(--accent); }
+  .badge.ended{ background:var(--neutral-soft); color:var(--neutral); }
+  .badge.unknown{ background:var(--neutral-soft); color:var(--neutral); }
+  .card-body{ padding:0 14px 16px; border-top:1px solid var(--border); margin-top:2px; padding-top:12px; display:flex; flex-direction:column; gap:12px; }
+  .kv-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px 18px; }
+  .kv{ display:flex; flex-direction:column; gap:2px; }
+  .kv .k{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-muted); }
+  .kv .v{ font-size:13px; line-height:1.5; }
+  .tag-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tag{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 8px; border-radius:999px; background:var(--surface-2); color:var(--ink-muted); }
+  .conf-badge{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:2px 8px; border-radius:999px; font-weight:600; }
+  .conf-high{ background:var(--good-soft); color:var(--good); }
+  .conf-medium{ background:var(--accent2-soft); color:var(--accent2); }
+  .conf-low{ background:var(--neutral-soft); color:var(--neutral); }
+  .src-list{ display:flex; flex-direction:column; gap:3px; font-size:12px; }
+  .src-list a{ word-break:break-all; }
+  .official-link{ font-size:12.5px; font-weight:600; }
+
+  footer{ border-top:1px solid var(--border); padding-top:16px; font-size:12px; color:var(--ink-muted); line-height:1.7; }
+  footer strong{ color:var(--ink); }
+
+  @media (max-width:640px){
+    .card-dates{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="title-block">
+      <p class="eyebrow">Publisher Marketing Ops</p>
+      <h1>인디 쇼케이스 캘린더</h1>
+      <p class="sub">스팀에 피쳐링되는 인디게임 온라인 쇼케이스의 접수 · 진행 일정과 비용을 한눈에 추적합니다.</p>
+    </div>
+    <div class="meta-block">
+      <div class="meta-item">
+        <span class="meta-label">마지막 업데이트</span>
+        <span class="meta-value" id="metaUpdated">—</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">다음 자동 갱신</span>
+        <span class="meta-value" id="metaNext">—</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="controls">
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="쇼케이스명 또는 주최사 검색…" />
+      <button class="clear-btn" id="clearBtn">필터 초기화</button>
+    </div>
+    <div class="filter-groups" id="filterGroups"></div>
+  </section>
+
+  <section class="timeline-card">
+    <h2 class="timeline-title">2026년 연간 타임라인</h2>
+    <div class="timeline-scroll">
+      <div class="timeline-inner">
+        <div class="timeline-toprow">
+          <div class="tl-corner">쇼케이스</div>
+          <div class="tl-months">
+            <span>1월</span><span>2월</span><span>3월</span><span>4월</span><span>5월</span><span>6월</span>
+            <span>7월</span><span>8월</span><span>9월</span><span>10월</span><span>11월</span><span>12월</span>
+          </div>
+        </div>
+        <div class="timeline-body">
+          <div class="tl-names" id="tlNames"></div>
+          <div class="tl-tracks" id="tlTracks">
+            <div class="tl-gridlines" id="tlGridlines"></div>
+            <div class="tl-todayline" id="tlToday"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tl-legend">
+      <span><i style="background:var(--accent)"></i>접수 기간</span>
+      <span><i style="background:var(--accent2)"></i>행사 기간</span>
+      <span><i class="today"></i>오늘</span>
+      <span style="color:var(--neutral)">막대 좌우가 흐려진 항목은 연도 경계를 넘는 일정입니다</span>
+    </div>
+  </section>
+
+  <section class="list-section" id="listSection"></section>
+
+  <footer>
+    <p><strong>자동 갱신 안내</strong> — 이 대시보드는 매월 1일, 예정된 리서치 작업이 각 쇼케이스의 공식 채널을 다시 확인해 접수·행사 일정, 비용, 다음 연도 공지 여부를 갱신합니다. 갱신 시각은 상단 "마지막 업데이트"에 표시됩니다.</p>
+    <p><strong>데이터 신뢰도 안내</strong> — <span class="conf-badge conf-high">확인됨</span>은 공식 페이지 기준, <span class="conf-badge conf-medium">부분확인</span>은 언론·2차 자료 기준, <span class="conf-badge conf-low">미확인</span>은 정보가 불충분하거나 비정기적인 항목입니다. 실제 마케팅 일정에 반영하기 전 공식 사이트에서 최종 확인을 권장합니다.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var YEAR = 2026;
+  var TODAY = '2026-09-10';
+
+  var SEED_SHOWCASES = [
+    {
+      id:'steam-next-fest', name:'Steam Next Fest', organizer:'Valve Corporation',
+      url:'https://store.steampowered.com/sale/nextfest',
+      cadence:'연 3회 · 2월 / 6월 / 10월',
+      cost:'무료 (Steamworks 개발자 계정 + 공개 스토어 페이지 + 플레이 가능한 데모 필요)', costTag:'free',
+      tags:['지역:전세계','형태:온라인전용','성격:비큐레이션','성격:솔로개발자친화','비용:무료','신뢰도:확인됨'],
+      confidence:'high',
+      submissionOpen:null, submissionClose:'2026-08-31', selectionDate:null, eventStart:'2026-10-19', eventEnd:'2026-10-26',
+      nextCyclePattern:'Valve가 각 회차별 Steamworks 파트너 문서 페이지를 공개하며 대략 행사 2~3개월 전 등록이 시작됩니다. 단, 한 게임은 평생 단 한 번만 참가할 수 있어 타이밍 전략이 중요합니다.',
+      notes:'심사 없는 선착순 등록제(비큐레이션). 2월(2/23-3/2)·6월(6/15-6/22) 회차는 이미 종료, 10월 회차가 진행 예정입니다.',
+      sources:['https://partner.steamgames.com/doc/marketing/upcoming_events/nextfest','https://presskit.gg/field-guides/next-fest-scheduling-registration']
+    },
+    {
+      id:'wholesome-direct', name:'Wholesome Direct', organizer:'Wholesome Games (독립 콜렉티브)',
+      url:'https://wholesomegames.com/',
+      cadence:'연 1회 · 6월 (Summer Game Fest 주간)',
+      cost:'미확인 (공개된 참가비 언급 없음, 무료로 추정)', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:장르특화(코지)','성격:솔로개발자친화','비용:비용미확인','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:'2026-03-20', selectionDate:null, eventStart:'2026-06-06', eventEnd:'2026-06-06',
+      nextCyclePattern:'통상 1~2월경 게임/공동주최 및 프레스 신청 폼이 별도로 열리며, 3월 중순~하순 마감 후 6월 초 방송까지 약 2.5개월의 리드타임을 둡니다.',
+      notes:'2025년 역대 최다 신청 기록. 힐링·코지 장르에 특화된 순수 인디 다이렉트 중 최고 화제성을 지닌 쇼케이스입니다.',
+      sources:['https://wholesomegames.com/','https://www.gamegrin.com/news/wholesome-direct-reaches-new-submissions-record-for-2025/']
+    },
+    {
+      id:'mix-summer-showcase', name:'MIX Summer Showcase (구 Guerrilla Collective)', organizer:'Media Indie Exchange (The MIX)',
+      url:'https://mediaindieexchange.com/',
+      cadence:'The MIX 연 3회(봄/여름/가을) 중 여름 회차 · 6월',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:인디전문','비용:비용미확인','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-06-05', eventEnd:'2026-06-05',
+      nextCyclePattern:'The MIX가 각 회차 2~3개월 전 새 Jotform 신청 링크를 공개합니다.',
+      notes:'과거 명칭 "Guerrilla Collective"(2020~2024). 2025년부터 "MIX Summer"로 브랜드가 개편되어 과거 자료 검색 시 혼동에 주의해야 합니다.',
+      sources:['https://mediaindieexchange.com/news/summer-showcase','https://explosionnetwork.com/mix-summer-showcase-returns-june-4-formerly-known-as-guerrilla-collective/']
+    },
+    {
+      id:'day-of-the-devs', name:'Day of the Devs', organizer:'Day of the Devs, LLC (Double Fine + iam8bit)',
+      url:'https://www.dayofthedevs.org/submit',
+      cadence:'연 1회 · 6월 (Summer Game Fest 연계)',
+      cost:'신청은 무료. 참신성·스튜디오 다양성·완성도·과거 참가 이력 등을 기준으로 한 내부 큐레이션 심사를 통과해야 합니다.', costTag:'free',
+      tags:['지역:전세계','형태:온라인전용','성격:큐레이션(경쟁적)','비용:무료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-06-07', eventEnd:'2026-06-07',
+      nextCyclePattern:'공식 신청 페이지가 회차 사이 기간엔 "현재 접수 중인 이벤트 없음"으로 표시됩니다. 다음 행사 약 3개월 전부터 공지될 것으로 예상됩니다.',
+      notes:'2013년부터 이어진 장수 쇼케이스로 경쟁률이 높은 큐레이션 방식입니다.',
+      sources:['https://www.dayofthedevs.org/submit','https://tech.yahoo.com/gaming/articles/day-devs-summer-game-fest-000622589.html']
+    },
+    {
+      id:'future-games-show', name:'Future Games Show', organizer:'Future plc (GamesRadar+ / PC Gamer)',
+      url:'https://www.futuregamesshow.com/',
+      cadence:'연 3회 · 3월(봄) / 6월(여름) / 8월(gamescom)',
+      cost:'무료 ("FGS Games Nomination" 폼 제출)', costTag:'free',
+      tags:['지역:전세계','형태:온라인전용','성격:AAA혼합','비용:무료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:'2026-01-26', selectionDate:null, eventStart:'2026-06-06', eventEnd:'2026-08-26',
+      nextCyclePattern:'상시 접수 폼을 열어두고 각 회차 약 5~6주 전에 마감을 설정하는 방식입니다.',
+      notes:'인디 전용은 아니며 AAA와 혼합 편성됩니다. 2020년 출범 이후 누적 4억 뷰 이상, 1,000개 이상 게임을 소개한 이력이 있습니다. 마감일은 3월 봄 회차 기준, 행사 구간은 6월·8월 회차를 포함합니다.',
+      sources:['https://www.gamesradar.com/future-games-show/','https://www.gamespress.com/FUTURE-GAMES-SHOW-CONFIRMS-THREE-SHOWS-FOR-GAMESCOM-2026']
+    },
+    {
+      id:'idxbox-showcase', name:'ID@Xbox Showcase', organizer:'Microsoft (ID@Xbox 프로그램)',
+      url:'https://www.xbox.com/en-us/developers/id',
+      cadence:'비정기 · 최근 2년간 연 2회 내외(예: 2025-10, 2026-04)',
+      cost:'ID@Xbox 프로그램 가입 자체는 무료(개발킷 2대, 인증/업데이트 무료 제공). 쇼케이스 편성 여부는 별도 큐레이션입니다.', costTag:'free',
+      tags:['지역:전세계','형태:온라인전용','성격:소수자대표성','비용:무료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-04-23', eventEnd:'2026-04-23',
+      nextCyclePattern:'개별 방송 일정은 통상 방송 2~4주 전에만 공지되어 예측이 어렵습니다.',
+      notes:'Xbox 우선 프로그램이지만 다수 타이틀이 Steam/PC 동시 발매됩니다. 흑인·원주민·라틴계·LGBTQIA+·여성·장애인 개발자 지원을 명시하고 있습니다.',
+      sources:['https://www.purexbox.com/news/2025/10/xbox-indie-showcase-announced-for-october-2025','https://www.purexbox.com/news/2026/04/xbox-to-highlight-tons-of-games-in-idatxbox-showcase-later-this-week']
+    },
+    {
+      id:'tribeca-games-spotlight', name:'Tribeca Games Spotlight', organizer:'Tribeca Festival / Tribeca Enterprises',
+      url:'https://tribecafilm.com/festival/submissions',
+      cadence:'연 1회 · 6월 (Tribeca Festival 게임 트랙)',
+      cost:'단계별 유료 제출료 적용(얼리/공식/연장 구간별 상이, 정확한 금액 미확인). 6월 초까지 유효한 비공개 다운로드 빌드가 필요합니다.', costTag:'paid',
+      tags:['지역:미국중심','형태:하이브리드','성격:큐레이션(경쟁적)','성격:장르특화(내러티브)','비용:유료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:'2025-10-29', submissionClose:'2026-02-11', selectionDate:null, eventStart:'2026-06-03', eventEnd:'2026-06-14',
+      nextCyclePattern:'다음 연도 마감일이 통상 8~9개월 전에 공지됩니다 (2026년 일정은 2025년 9월경 발표됨).',
+      notes:'내러티브·예술성 중심의 고급 큐레이션이며, 뉴욕 현지 행사와 결합된 하이브리드 형태입니다. 접수는 얼리(2025-10-29)·공식(2026-01-14)·연장(2026-02-11) 3단계로 진행되었습니다.',
+      sources:['https://www.hollywoodreporter.com/movies/movie-news/tribeca-festival-2026-dates-submission-deadlines-1236385594/','https://vimooz.com/2025/09/25/2026-tribeca-festival-announces-dates-and-submission-deadlines/']
+    },
+    {
+      id:'lags', name:'Latin American Games Showcase (LAGS)', organizer:'Raw Fury · Epopeia Games · Playdate · Halberd Studios 등 공동주최',
+      url:'https://www.lagshowcase.com/',
+      cadence:'연 3회 이상 · SGF(6월) / TGA(12월) / Creator Fest(8~10월경)',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:중남미(LatAm)','형태:온라인전용','성격:솔로개발자친화','비용:비용미확인','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:null, eventEnd:null,
+      nextCyclePattern:'각 신청 창구는 연계된 대형 이벤트(SGF 또는 TGA) 시작 1~2개월 전에 오픈됩니다.',
+      notes:'중남미(LatAm) 개발자 대표성에 특화. 가장 최근 확인된 사례는 Creator Fest 2025(접수마감 8/24)와 TGA 연계 6th 에디션(2025년 12월)이며, 2026년 TGA 연계 회차는 아직 공식 공지 전(12월경 예상)입니다.',
+      sources:['https://www.lagshowcase.com/','https://gamersocialclub.ca/2025/06/07/latin-american-games-showcase-2025-everything-announced/']
+    },
+    {
+      id:'black-voices-in-gaming', name:'Black Voices in Gaming Showcase', organizer:'XPerience Studios',
+      url:'https://www.blackvoicesingaming.com/',
+      cadence:'연 2회 · 2월 / 6월',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:소수자대표성','성격:솔로개발자친화','비용:비용미확인','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-06-02', eventEnd:'2026-06-02',
+      nextCyclePattern:'각 회차 2~3개월 전 새 Jotform 신청 링크가 공개됩니다.',
+      notes:'흑인 개발자·크리에이터 조명에 특화. IGN·GameSpot 등 대형 매체와 공동 송출됩니다. 2월(2/19) 회차는 이미 종료.',
+      sources:['https://www.gamespress.com/Black-Voices-in-Gaming-Showcase-Returns-February-19','https://store.steampowered.com/sale/BlackVoicesInGaming2026']
+    },
+    {
+      id:'access-ability-summer-showcase', name:'Access-Ability Summer Showcase', organizer:'Laura Kate Dale (독립, Can I Play That?)',
+      url:'https://access-ability.uk/',
+      cadence:'연 1회 · 6월 (Summer Game Fest 첫날)',
+      cost:'무료 — 선정작에 참가비 없음, 독점 요구 없음(2025년 기준 명시).', costTag:'free',
+      tags:['지역:전세계','형태:온라인전용','성격:장르특화(접근성)','성격:솔로개발자친화','비용:무료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-06-05', eventEnd:'2026-06-05',
+      nextCyclePattern:'통상 1~2월경 복귀 공지가 올라옵니다.',
+      notes:'접근성 기능이 우수한 게임을 장르 무관으로 소개합니다. 수어(ASL/BSL) 및 음성 해설 버전을 제공합니다. AbleGamers 재단과는 별개의 독립 운영 쇼케이스입니다.',
+      sources:['https://access-ability.uk/2026/01/30/access-ability-summer-showcase-returning-for-2026/','https://caniplaythat.com/2026/06/05/access-ability-summer-showcase-2026-recap/']
+    },
+    {
+      id:'indie-live-expo', name:'INDIE Live Expo', organizer:'INDIE Live Expo 실행위원회 (일본)',
+      url:'https://indie.live-expo.games/en/',
+      cadence:'연 2회 · 4월(봄) / 12월(윈터)',
+      cost:'기업/개인당 1개 타이틀 무료 출품, 복수 출품 시 유료 스폰서십.', costTag:'free',
+      tags:['지역:일본기반','형태:온라인전용','성격:솔로개발자친화','비용:무료','신뢰도:확인됨'],
+      confidence:'high',
+      submissionOpen:null, submissionClose:'2026-09-29', selectionDate:null, eventStart:'2026-12-01', eventEnd:'2026-12-01',
+      nextCyclePattern:'각 방송 2~3개월 전 새 신청 창구가 열립니다.',
+      notes:'일본 기반이나 영어·중국어·한국어 등 다국어로 전세계에 송출(Steam·YouTube·X·Twitch·니코니코·bilibili 동시 방송)됩니다. 지원자 초과 시 약 80개 작품으로 선별됩니다.',
+      sources:['https://indie.live-expo.games/en/entry/','https://www.gematsu.com/2026/09/indie-live-expo-december-1-2026-developer-submissions-open']
+    },
+    {
+      id:'pc-gaming-show', name:'PC Gaming Show', organizer:'PC Gamer / Future plc',
+      url:'https://www.summergamefest.com/events/pc-gaming-show-2026',
+      cadence:'연 1회 · 6월 (Summer Game Fest 주간)',
+      cost:'미확인 — 공개된 지원 절차를 찾지 못함(편집부 피칭·관계 기반으로 추정).', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:AAA혼합','비용:비용미확인','신뢰도:미확인'],
+      confidence:'low',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-06-07', eventEnd:'2026-06-07',
+      nextCyclePattern:'확인된 공개 패턴 없음 — 오픈 콜이 아닌 관계 기반 쇼케이스로 접근이 필요합니다.',
+      notes:'2015년부터 이어진 PC/Steam 특화 쇼케이스. 인디와 AAA 혼합 편성이며 회당 50개 이상 게임을 공개합니다.',
+      sources:['https://www.summergamefest.com/events/pc-gaming-show-2026','https://www.pcgamer.com/gaming-industry/events-conferences/every-game-trailer-and-announcement-in-the-pc-gaming-show-2026/']
+    },
+    {
+      id:'mix-spring-showcase', name:'Kinda Funny x The MIX Spring Game Showcase', organizer:'Kinda Funny + Media Indie Exchange',
+      url:'https://mediaindieexchange.com/showcases/spring-game-showcase-2026',
+      cadence:'연 1회 · 3월 (GDC 주간)',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:인디전문','비용:비용미확인','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-03-06', eventEnd:'2026-03-06',
+      nextCyclePattern:'The MIX의 일반 패턴대로 3월 방송 2~3개월 전 Jotform 신청 링크가 열립니다.',
+      notes:'매회 약 60개 인디게임을 꾸준히 큐레이션하는 것이 특징입니다.',
+      sources:['https://mediaindieexchange.com/showcases/spring-game-showcase-2026','https://bleedingcool.com/games/everything-at-the-kinda-funny-x-the-mix-spring-game-showcase-2025/']
+    },
+    {
+      id:'triple-i-initiative', name:'Triple-i Initiative', organizer:'다수 스튜디오 연합 (단일 주관사 없음)',
+      url:'https://iii-initiative.com/en/',
+      cadence:'비정기 · 연 1회 내외(3~4월경)',
+      cost:'미확인 — 공개 신청 폼 없음, 이메일 문의 기반.', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:인디전문','성격:초대기반','비용:비용미확인','신뢰도:미확인'],
+      confidence:'low',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-03-09', eventEnd:'2026-03-09',
+      nextCyclePattern:'공식 FAQ에서 "현재 공지할 내용 없음"이라고 명시되어 있습니다 — 뉴스레터 구독으로만 확인 가능합니다.',
+      notes:'단일 주관사 없이 여러 스튜디오가 연합 운영합니다. 트레일러 릴 형식의 큐레이션 쇼케이스(약 40개 작품)입니다.',
+      sources:['https://iii-initiative.com/en/faq/','https://nintendoeverything.com/2026-triple-i-initiative-showcase-announced/']
+    },
+    {
+      id:'ludonarracon', name:'LudoNarraCon', organizer:'Fellow Traveller (퍼블리셔)',
+      url:'https://www.ludonarracon.com/',
+      cadence:'연 1회 · 2026년부터 10월로 변경(과거 5월)',
+      cost:'미확인 — "공식 셀렉션" 큐레이션 심사가 존재합니다.', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:장르특화(내러티브)','성격:큐레이션(경쟁적)','비용:비용미확인','신뢰도:확인됨'],
+      confidence:'high',
+      submissionOpen:'2026-06-01', submissionClose:'2026-06-28', selectionDate:null, eventStart:'2026-10-08', eventEnd:'2026-10-15',
+      nextCyclePattern:'행사 몇 개월 전 신청 창구가 열리며, 일정이 5월→10월로 이동하면서 리드타임이 길어졌습니다.',
+      notes:'내러티브 중심 장르 특화, Steam 자체 세일/데모 주간과 결합됩니다. 2026년 개발자 패널은 잠정 중단되었습니다.',
+      sources:['https://www.ludonarracon.com/faq','https://www.fellowtraveller.games/blog/submit-your-game-to-ludonarracon-2026']
+    },
+    {
+      id:'indie-arena-booth', name:'Indie Arena Booth (gamescom)', organizer:'Superrare Originals + gamescom/Koelnmesse',
+      url:'https://indiearenabooth.de/',
+      cadence:'연 1회 · 8월 (gamescom 기간, 쾰른)',
+      cost:'등급별 유료 부스(Big/Small/Arcade Booth 등). 일부 파트너 연계 무료 부스 및 무료 Switch 부스 트랙이 존재합니다.', costTag:'paid',
+      tags:['지역:전세계','형태:하이브리드','성격:인디전문','비용:유료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:'2026-03-11', submissionClose:'2026-04-13', selectionDate:null, eventStart:null, eventEnd:null,
+      nextCyclePattern:'gamescom 약 5개월 전(3월 중순)에 신청이 열리고 4월 중순 마감, 이후 2~3주 내 결과가 통보됩니다.',
+      notes:'선정 발표는 4월 말~5월 초로 예상됩니다. 본 행사는 gamescom 기간(2026년 8월) 쾰른 현지 부스가 중심이며 온라인 방송·Steam 세일이 병행되는 하이브리드 행사입니다 — 순수 온라인 필터에서는 제외를 고려하세요.',
+      sources:['https://indiearenabooth.de/submission','https://www.gamesmarket.global/indie-arena-booth-2026-submissions-open-until-13-april/']
+    },
+    {
+      id:'thinky-direct', name:'Thinky Direct', organizer:'Thinky Games + Draknek & Friends',
+      url:'https://thinkygames.com/direct/',
+      cadence:'연 1회 · 5월',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:장르특화(퍼즐)','비용:비용미확인','신뢰도:미확인'],
+      confidence:'low',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:'2026-05-28', eventEnd:'2026-05-28',
+      nextCyclePattern:'2025년 시작한 신생 쇼케이스로 아직 뚜렷한 공지 패턴이 확립되지 않았습니다.',
+      notes:'퍼즐("씽키") 장르 특화, Steam 연계 할인 주간("Cerebral Puzzle Showcase")과 결합됩니다.',
+      sources:['https://thinkygames.com/direct/','https://gamesbeat.com/thinky-direct-returning-with-more-puzzle-game-announcements/']
+    },
+    {
+      id:'toomanygames-indie-showcase', name:'TooManyGames Indie Game Showcase', organizer:'TooManyGames (필라델피아 컨벤션)',
+      url:'https://toomanygames.com/indie-game-showcase/',
+      cadence:'연 1회 · 6월 (디지털 Steam 쇼케이스 + 오프라인 엑스포 병행)',
+      cost:'선정작 참가비 발생(정확한 금액 미확인).', costTag:'paid',
+      tags:['지역:미국중심','형태:하이브리드','성격:인디전문','비용:유료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:null, submissionClose:'2026-04-10', selectionDate:'2026-04-13', eventStart:'2026-06-23', eventEnd:'2026-06-28',
+      nextCyclePattern:'통상 1~2월경 접수를 열어 3월 말 마감, 6월 쇼케이스까지 약 3개월의 리드타임을 둡니다.',
+      notes:'미국 필라델피아 인근 컨벤션이 주최하나 전세계 출품이 가능합니다. 신청량이 전년 대비 500% 이상 급증 중인 것으로 보고되었습니다. 디지털 쇼케이스는 6/23, 현지 엑스포는 6/26~28입니다.',
+      sources:['https://www.gfinityesports.com/article/toomanygames-2026-indie-showcase-submissions-are-now-open','https://toomanygames.com/indie-game-showcase-application/']
+    },
+    {
+      id:'bitsummit', name:'BitSummit (PUNCH)', organizer:'BitSummit 실행위원회 (교토, 일본)',
+      url:'https://bitsummit.org/en/',
+      cadence:'연 1회 · 5월 (교토 현지 행사 + 온라인 방송 병행)',
+      cost:'유료 — 건당 2,750엔(세금 포함), 연장 접수 시 5,500엔.', costTag:'paid',
+      tags:['지역:일본기반','형태:하이브리드','성격:인디전문','비용:유료','신뢰도:부분확인'],
+      confidence:'medium',
+      submissionOpen:'2025-10-30', submissionClose:'2026-01-16', selectionDate:null, eventStart:'2026-05-22', eventEnd:'2026-05-24',
+      nextCyclePattern:'통상 10월 말 접수를 열어 12월 말 정규 마감, 다음해 5월 행사까지 약 7개월의 리드타임을 둡니다. 2026년 10월 말 전후로 2027년 접수가 열릴 것으로 예상됩니다.',
+      notes:'일본 교토 현지 오프라인이 중심이며, 2026년부터 GamesRadar+·The MIX와 협업한 온라인 쇼케이스가 추가되었습니다.',
+      sources:['https://bitsummit.org/en/submissions-now-open-bitsummit-punch-may-22-24-2026-at-miyako-messe-kyoto/','https://bitsummit.org/en/submission-faq-eng/']
+    },
+    {
+      id:'realms-deep', name:'Realms Deep', organizer:'3D Realms (퍼블리셔)',
+      url:'https://www.realmsdeep.games/',
+      cadence:'비정기 · 과거 연 1회(9월) 패턴, 최근 개최 여부 미확인',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:전세계','형태:온라인전용','성격:장르특화(레트로슈터)','비용:비용미확인','신뢰도:미확인'],
+      confidence:'low',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:null, eventEnd:null,
+      nextCyclePattern:'확인된 공지 패턴 없음 — 최근 확인된 개최는 2024년 9월이 마지막이며 2025·2026년 개최 여부가 불투명합니다.',
+      notes:'레트로/붐슈터 장르에 특화. 퍼블리셔(3D Realms)가 자사 파트너작 위주로 큐레이션하는 비공개형 행사입니다. 활성 상태 재확인이 필요합니다.',
+      sources:['https://www.pcgamer.com/3d-realms-launches-the-second-realms-deep-a-shooter-focused-digital-event/','https://www.realmsdeep.games/']
+    },
+    {
+      id:'latinx-in-gaming-showcase', name:'Latinx in Gaming Showcase', organizer:'Latinx in Gaming, NFP',
+      url:'https://www.latinxingaming.com/games-showcase',
+      cadence:'미확인',
+      cost:'미확인', costTag:'unknown',
+      tags:['지역:중남미(LatAm)','형태:온라인전용','성격:소수자대표성','비용:비용미확인','신뢰도:미확인'],
+      confidence:'low',
+      submissionOpen:null, submissionClose:null, selectionDate:null, eventStart:null, eventEnd:null,
+      nextCyclePattern:'별도의 상시 "쇼케이스" 프로그램이 실제로 운영 중인지 확인되지 않았습니다.',
+      notes:'공식 "Games Showcase" 페이지가 비활성·임시 콘텐츠로 추정됩니다. 유사 명칭의 "Latin American Games Showcase(LAGS)"와는 별도 단체·별도 이벤트이니 혼동에 주의하세요.',
+      sources:['https://www.latinxingaming.com/games-showcase','https://www.latinxgamesfestival.com/']
+    }
+  ];
+
+  var STATUS_META = {
+    'closing-soon':{order:0,label:'마감임박'},
+    'open':{order:1,label:'접수중'},
+    'live':{order:2,label:'진행중'},
+    'awaiting-event':{order:3,label:'접수마감 · 행사예정'},
+    'upcoming':{order:4,label:'접수예정'},
+    'ended':{order:5,label:'종료'},
+    'unknown':{order:6,label:'정보 확인 필요'}
+  };
+
+  var showcases = SEED_SHOWCASES.slice();
+  var lastUpdatedLabel = '2026-09-10 (초기 리서치 기준)';
+  var nextRefreshLabel = '2026-10-01 예정';
+  var activeTags = {};
+  var searchTerm = '';
+
+  function parseDate(s){ return s ? new Date(s+'T00:00:00Z') : null; }
+  var TODAY_D = parseDate(TODAY);
+
+  function fracInfo(dateStr){
+    var d = parseDate(dateStr);
+    var start = Date.UTC(YEAR,0,1), end = Date.UTC(YEAR+1,0,1);
+    var t = d.getTime();
+    var clampedLow=false, clampedHigh=false;
+    if(t<start){ t=start; clampedLow=true; }
+    if(t>=end){ t=end-1; clampedHigh=true; }
+    return { frac:(t-start)/(end-start), clampedLow:clampedLow, clampedHigh:clampedHigh };
+  }
+
+  function computeStatus(s){
+    var so=parseDate(s.submissionOpen), sc=parseDate(s.submissionClose);
+    var es=parseDate(s.eventStart), ee=parseDate(s.eventEnd)||es;
+    if(ee && TODAY_D>ee) return {key:'ended'};
+    if(es && ee && TODAY_D>=es && TODAY_D<=ee) return {key:'live'};
+    if(sc && TODAY_D<=sc && (!so||TODAY_D>=so)){
+      var daysLeft = Math.ceil((sc-TODAY_D)/86400000);
+      if(daysLeft<=21) return {key:'closing-soon', daysLeft:daysLeft};
+      return {key:'open'};
+    }
+    if(so && TODAY_D<so) return {key:'upcoming'};
+    if(es && TODAY_D<es) return {key:'awaiting-event'};
+    return {key:'unknown'};
+  }
+
+  function fmtDate(s){
+    if(!s) return null;
+    var d = parseDate(s);
+    return (d.getUTCMonth()+1)+'/'+d.getUTCDate();
+  }
+  function fmtRange(a,b){
+    if(!a && !b) return '미정';
+    if(a && b && a!==b) return fmtDate(a)+' – '+fmtDate(b);
+    return fmtDate(a||b);
+  }
+
+  function confClass(level){
+    if(level==='high') return 'conf-high';
+    if(level==='medium') return 'conf-medium';
+    return 'conf-low';
+  }
+  function confLabel(level){
+    if(level==='high') return '확인됨';
+    if(level==='medium') return '부분확인';
+    return '미확인';
+  }
+
+  // ---- filter chip taxonomy ----
+  var GROUP_ORDER = ['지역','형태','성격','비용','신뢰도'];
+  var GROUP_LABELS = {'지역':'지역','형태':'형태','성격':'성격','비용':'비용','신뢰도':'신뢰도'};
+
+  function buildFilterUI(){
+    var groups = {};
+    SEED_SHOWCASES.forEach(function(s){
+      s.tags.forEach(function(t){
+        var parts = t.split(':');
+        var g = parts[0], v = parts[1];
+        if(!groups[g]) groups[g] = [];
+        if(groups[g].indexOf(v)===-1) groups[g].push(v);
+      });
+    });
+    var wrap = document.getElementById('filterGroups');
+    wrap.innerHTML = '';
+    GROUP_ORDER.forEach(function(g){
+      if(!groups[g]) return;
+      var row = document.createElement('div');
+      row.className = 'filter-group';
+      var label = document.createElement('span');
+      label.className = 'filter-group-label';
+      label.textContent = GROUP_LABELS[g] || g;
+      row.appendChild(label);
+      var chips = document.createElement('div');
+      chips.className = 'chips';
+      groups[g].forEach(function(v){
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip';
+        chip.textContent = v;
+        chip.dataset.group = g;
+        chip.dataset.value = v;
+        chip.addEventListener('click', function(){
+          activeTags[g] = activeTags[g] || {};
+          if(activeTags[g][v]){ delete activeTags[g][v]; chip.classList.remove('active'); }
+          else { activeTags[g][v] = true; chip.classList.add('active'); }
+          renderAll();
+        });
+        chips.appendChild(chip);
+      });
+      row.appendChild(chips);
+      wrap.appendChild(row);
+    });
+  }
+
+  function matchesFilters(s){
+    for(var g in activeTags){
+      var vals = Object.keys(activeTags[g]).filter(function(v){ return activeTags[g][v]; });
+      if(vals.length===0) continue;
+      var ok = vals.some(function(v){ return s.tags.indexOf(g+':'+v)!==-1; });
+      if(!ok) return false;
+    }
+    if(searchTerm){
+      var hay = (s.name+' '+s.organizer).toLowerCase();
+      if(hay.indexOf(searchTerm.toLowerCase())===-1) return false;
+    }
+    return true;
+  }
+
+  function sortKey(s){
+    var st = computeStatus(s);
+    var meta = STATUS_META[st.key];
+    var secondary = 99999999;
+    var so=parseDate(s.submissionOpen), sc=parseDate(s.submissionClose), es=parseDate(s.eventStart), ee=parseDate(s.eventEnd);
+    if(st.key==='closing-soon'||st.key==='open') secondary = sc ? sc.getTime() : secondary;
+    else if(st.key==='live') secondary = ee ? ee.getTime() : secondary;
+    else if(st.key==='awaiting-event') secondary = es ? es.getTime() : secondary;
+    else if(st.key==='upcoming') secondary = so ? so.getTime() : secondary;
+    else if(st.key==='ended') secondary = ee ? -ee.getTime() : secondary;
+    return [meta.order, secondary];
+  }
+
+  function renderStats(filtered){
+    var open = filtered.filter(function(s){ var k=computeStatus(s).key; return k==='open'||k==='closing-soon'; }).length;
+    var closingSoon = filtered.filter(function(s){ return computeStatus(s).key==='closing-soon'; }).length;
+    var soon60 = filtered.filter(function(s){
+      var es = parseDate(s.eventStart);
+      if(!es) return false;
+      var diff = (es-TODAY_D)/86400000;
+      return diff>=0 && diff<=60;
+    }).length;
+    var stats = [
+      {label:'추적 중인 쇼케이스', value:filtered.length, cls:''},
+      {label:'현재 접수중', value:open, cls:'good'},
+      {label:'마감임박 (D-21 이내)', value:closingSoon, cls:'warn'},
+      {label:'60일 내 행사 예정', value:soon60, cls:''}
+    ];
+    var el = document.getElementById('stats');
+    el.innerHTML = '';
+    stats.forEach(function(st){
+      var tile = document.createElement('div');
+      tile.className = 'stat-tile';
+      tile.innerHTML = '<div class="stat-value '+st.cls+'">'+st.value+'</div><div class="stat-label">'+st.label+'</div>';
+      el.appendChild(tile);
+    });
+  }
+
+  function renderTimeline(filtered){
+    var sorted = filtered.slice().sort(function(a,b){
+      var ka=sortKey(a), kb=sortKey(b);
+      if(ka[0]!==kb[0]) return ka[0]-kb[0];
+      return ka[1]-kb[1];
+    });
+    var names = document.getElementById('tlNames');
+    var tracks = document.getElementById('tlTracks');
+    names.innerHTML = '';
+    // clear rows but keep gridlines/today container
+    var gridlines = document.getElementById('tlGridlines');
+    var today = document.getElementById('tlToday');
+    tracks.innerHTML = '';
+    tracks.appendChild(gridlines);
+    tracks.appendChild(today);
+
+    gridlines.innerHTML = '';
+    for(var i=1;i<12;i++){
+      var line = document.createElement('i');
+      line.style.left = (i/12*100)+'%';
+      gridlines.appendChild(line);
+    }
+    today.innerHTML = '';
+    var tf = fracInfo(TODAY);
+    var tline = document.createElement('div');
+    tline.className='line';
+    tline.style.left = (tf.frac*100)+'%';
+    today.appendChild(tline);
+    var ttag = document.createElement('div');
+    ttag.className='tag';
+    ttag.style.left = (tf.frac*100)+'%';
+    ttag.textContent = '오늘 9/10';
+    today.appendChild(ttag);
+
+    sorted.forEach(function(s){
+      var nameEl = document.createElement('div');
+      nameEl.className = 'tl-name';
+      nameEl.innerHTML = '<span class="n">'+s.name+'</span><span class="o">'+s.organizer+'</span>';
+      names.appendChild(nameEl);
+
+      var row = document.createElement('div');
+      row.className = 'tl-row';
+
+      var hasAny = false;
+      if(s.submissionOpen || s.submissionClose){
+        hasAny = true;
+        var a = s.submissionOpen, b = s.submissionClose;
+        if(a && b){
+          var fa=fracInfo(a), fb=fracInfo(b);
+          var bar = document.createElement('div');
+          bar.className = 'tl-bar submission'+(fa.clampedLow?' clamped-low':'')+(fb.clampedHigh?' clamped-high':'');
+          bar.style.left = (fa.frac*100)+'%';
+          bar.style.width = Math.max((fb.frac-fa.frac)*100,0.6)+'%';
+          bar.title = '접수: '+fmtRange(a,b);
+          row.appendChild(bar);
+        } else {
+          var f = fracInfo(a||b);
+          var dot = document.createElement('div');
+          dot.className = 'tl-dot submission';
+          dot.style.left = (f.frac*100)+'%';
+          dot.title = '접수 마감/시작: '+fmtDate(a||b);
+          row.appendChild(dot);
+        }
+      }
+      if(s.eventStart || s.eventEnd){
+        hasAny = true;
+        var ea = s.eventStart, eb = s.eventEnd;
+        if(ea && eb && ea!==eb){
+          var fea=fracInfo(ea), feb=fracInfo(eb);
+          var ebar = document.createElement('div');
+          ebar.className = 'tl-bar event'+(fea.clampedLow?' clamped-low':'')+(feb.clampedHigh?' clamped-high':'');
+          ebar.style.left = (fea.frac*100)+'%';
+          ebar.style.width = Math.max((feb.frac-fea.frac)*100,0.6)+'%';
+          ebar.title = '행사: '+fmtRange(ea,eb);
+          row.appendChild(ebar);
+        } else {
+          var fe = fracInfo(ea||eb);
+          var edot = document.createElement('div');
+          edot.className = 'tl-dot event';
+          edot.style.left = (fe.frac*100)+'%';
+          edot.title = '행사일: '+fmtDate(ea||eb);
+          row.appendChild(edot);
+        }
+      }
+      if(!hasAny){
+        var empty = document.createElement('div');
+        empty.className = 'tl-empty';
+        empty.textContent = '일정 미정';
+        row.appendChild(empty);
+      }
+      tracks.appendChild(row);
+    });
+  }
+
+  function renderList(filtered){
+    var groups = {};
+    filtered.forEach(function(s){
+      var k = computeStatus(s).key;
+      groups[k] = groups[k] || [];
+      groups[k].push(s);
+    });
+    var order = ['closing-soon','open','live','awaiting-event','upcoming','ended','unknown'];
+    var el = document.getElementById('listSection');
+    el.innerHTML = '';
+    order.forEach(function(k){
+      var items = groups[k];
+      if(!items || !items.length) return;
+      items.sort(function(a,b){ return sortKey(a)[1]-sortKey(b)[1]; });
+      var section = document.createElement('div');
+      section.className = 'status-group';
+      var h2 = document.createElement('h2');
+      h2.innerHTML = STATUS_META[k].label+' <span class="status-count">('+items.length+'개)</span>';
+      section.appendChild(h2);
+      var cards = document.createElement('div');
+      cards.className = 'cards';
+      items.forEach(function(s){
+        cards.appendChild(buildCard(s, k));
+      });
+      section.appendChild(cards);
+      el.appendChild(section);
+    });
+  }
+
+  function buildCard(s, statusKey){
+    var det = document.createElement('details');
+    det.className = 'card';
+
+    var summary = document.createElement('summary');
+    var st = computeStatus(s);
+    var badgeLabel = STATUS_META[statusKey].label;
+    if(statusKey==='closing-soon') badgeLabel = '마감 D-'+st.daysLeft;
+
+    summary.innerHTML =
+      '<span class="chev">▸</span>' +
+      '<span class="card-title"><span class="n">'+s.name+'</span><span class="o">'+s.organizer+'</span></span>' +
+      '<span class="badge '+statusKey+'">'+badgeLabel+'</span>' +
+      '<span class="card-dates">접수 '+fmtRange(s.submissionOpen,s.submissionClose)+' · 행사 '+fmtRange(s.eventStart,s.eventEnd)+'</span>';
+    det.appendChild(summary);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+
+    var kv = document.createElement('div');
+    kv.className = 'kv-grid';
+    function kvItem(k,v){
+      var d = document.createElement('div');
+      d.className = 'kv';
+      d.innerHTML = '<span class="k">'+k+'</span><span class="v">'+v+'</span>';
+      return d;
+    }
+    kv.appendChild(kvItem('개최 주기', s.cadence));
+    kv.appendChild(kvItem('참가 비용', s.cost));
+    kv.appendChild(kvItem('접수 기간', fmtRange(s.submissionOpen,s.submissionClose)));
+    kv.appendChild(kvItem('행사 일정', fmtRange(s.eventStart,s.eventEnd)));
+    body.appendChild(kv);
+
+    var patternBox = document.createElement('div');
+    patternBox.className = 'kv';
+    patternBox.innerHTML = '<span class="k">다음 연도 일정 공개 패턴</span><span class="v">'+s.nextCyclePattern+'</span>';
+    body.appendChild(patternBox);
+
+    if(s.notes){
+      var noteBox = document.createElement('div');
+      noteBox.className = 'kv';
+      noteBox.innerHTML = '<span class="k">참고사항</span><span class="v">'+s.notes+'</span>';
+      body.appendChild(noteBox);
+    }
+
+    var tagRow = document.createElement('div');
+    tagRow.className = 'tag-row';
+    var confSpan = document.createElement('span');
+    confSpan.className = 'conf-badge '+confClass(s.confidence);
+    confSpan.textContent = '신뢰도: '+confLabel(s.confidence);
+    tagRow.appendChild(confSpan);
+    s.tags.forEach(function(t){
+      var span = document.createElement('span');
+      span.className = 'tag';
+      span.textContent = t.split(':')[1];
+      tagRow.appendChild(span);
+    });
+    body.appendChild(tagRow);
+
+    var linkRow = document.createElement('div');
+    linkRow.innerHTML = '<a class="official-link" href="'+s.url+'" target="_blank" rel="noopener noreferrer">공식 사이트 열기 →</a>';
+    body.appendChild(linkRow);
+
+    if(s.sources && s.sources.length){
+      var srcBox = document.createElement('div');
+      srcBox.className = 'kv';
+      var srcList = document.createElement('div');
+      srcList.className = 'src-list';
+      s.sources.forEach(function(u){
+        var a = document.createElement('a');
+        a.href = u; a.target='_blank'; a.rel='noopener noreferrer';
+        a.textContent = u;
+        srcList.appendChild(a);
+      });
+      srcBox.innerHTML = '<span class="k">출처</span>';
+      srcBox.appendChild(srcList);
+      body.appendChild(srcBox);
+    }
+
+    det.appendChild(body);
+    return det;
+  }
+
+  function renderMeta(){
+    document.getElementById('metaUpdated').textContent = lastUpdatedLabel;
+    document.getElementById('metaNext').textContent = nextRefreshLabel;
+  }
+
+  function renderAll(){
+    var filtered = showcases.filter(matchesFilters);
+    renderStats(filtered);
+    renderTimeline(filtered);
+    renderList(filtered);
+  }
+
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    searchTerm = e.target.value;
+    renderAll();
+  });
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    activeTags = {};
+    searchTerm = '';
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('.chip.active').forEach(function(c){ c.classList.remove('active'); });
+    renderAll();
+  });
+
+  buildFilterUI();
+  renderMeta();
+  renderAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "indie-showcase-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8234"],
+      "port": 8234
+    }
+  ]
+}
